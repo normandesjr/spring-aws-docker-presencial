@@ -58,3 +58,7 @@ resource "aws_route_table_association" "route_table_association" {
   subnet_id      = "${element(aws_subnet.public_subnet.*.id, count.index)}"
   route_table_id = "${aws_route_table.route_igw.id}"
 }
+
+output "cidr_public" {
+  value = "${aws_subnet.public_subnet.*.cidr_block}"
+}

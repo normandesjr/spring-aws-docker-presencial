@@ -30,3 +30,5 @@ variable "instance_type" {
 }
 
 variable "my_public_cidr" {}
+
+variable "db_password" {}
