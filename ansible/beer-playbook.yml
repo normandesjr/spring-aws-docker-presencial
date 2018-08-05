@@ -1,0 +1,28 @@
+---
+- name: Basic Configuration on EC2 Instance
+  hosts: all
+  remote_user: ec2-user
+  gather_facts: False
+  become: true
+  tasks:
+    - name: Install Docker
+      yum: name=docker
+
+    - name: Ensure docker service is started and enabled
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Append user to docker group
+      user:
+        name: ec2-user
+        append: yes
+        groups: docker
+
+    - name: Create Directory for Portainer Local Database on home
+      file:
+        path: .portainer/data
+        state: directory
+        owner: ec2-user
+        group: ec2-user

@@ -13,7 +13,7 @@ resource "aws_instance" "instances" {
 
   key_name = "${aws_key_pair.keypair.key_name}"
 
-  vpc_security_group_ids = ["${aws_security_group.allow_ssh.id}"]
+  vpc_security_group_ids = ["${aws_security_group.allow_ssh.id}",  "${aws_security_group.allow_outbound.id}"]
 
   tags = {
     Name = "hibicode_instances"
@@ -24,4 +24,23 @@ resource "aws_instance" "instances" {
 
 output "public_ip" {
   value = "${join(", ", aws_instance.instances.*.public_ip)}"
+}
+
+data "template_file" "hosts" {
+  template = "${file("./template/hosts.tpl")}"
+
+  vars {
+    PUBLIC_IP_0 = "${aws_instance.instances.*.public_ip[0]}"
+    PUBLIC_IP_1 = "${aws_instance.instances.*.public_ip[1]}"
+    PUBLIC_IP_2 = "${aws_instance.instances.*.public_ip[2]}"
+
+    PRIVATE_IP_0 = "${aws_instance.instances.*.private_ip[0]}"
+    PRIVATE_IP_1 = "${aws_instance.instances.*.private_ip[1]}"
+    PRIVATE_IP_2 = "${aws_instance.instances.*.private_ip[2]}"
+  }
+}
+
+resource "local_file" "hosts" {
+  content  = "${data.template_file.hosts.rendered}"
+  filename = "./template/hosts"
 }

@@ -1,2 +1,6 @@
 .terraform
 terraform/key/beer_key
+
+.DS_Store
+ansible/beer-playbook.retry
+terraform/template/hosts

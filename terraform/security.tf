@@ -34,3 +34,20 @@ resource "aws_security_group" "allow_db_connection" {
     Name = "allow_db_connection"
   }
 }
+
+resource "aws_security_group" "allow_outbound" {
+  vpc_id      = "${aws_vpc.main.id}"
+  name        = "hibicode_allow_outbound"
+  description = "Security Group that allows instance connect to internet"
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags {
+    Name = "allow_outbound"
+  }
+}
