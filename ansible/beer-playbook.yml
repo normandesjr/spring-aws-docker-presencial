@@ -26,3 +26,74 @@
         state: directory
         owner: ec2-user
         group: ec2-user
+
+- name: Initialize Swarm Master
+  hosts: manager-leader
+  gather_facts: False
+  remote_user: ec2-user
+  become: true
+  tasks:
+    - shell: "docker info | grep 'Swarm' | awk -F'Swarm: ' '{print $NF}'"
+      register: swarm_mode
+
+    - name: Show Swarm Mode
+      debug: var=swarm_mode.stdout
+
+    - shell: "docker network ls | grep service -c | { grep -v grep || true; }"
+      register: overlay_network_created
+
+    - name: Swarm Init
+      command: docker swarm init --advertise-addr {{ private_ip }}
+      when: swarm_mode.stdout == "inactive"
+
+    - name: Create Service overlay network
+      command: docker network create --driver overlay --subnet 10.0.0.0/16 service
+      when: overlay_network_created.stdout == "0"
+
+      # Again because swarm_mode changed
+    - shell: "docker info | grep 'Swarm' | awk -F'Swarm: ' '{print $NF}'"
+      register: swarm_mode
+
+    - name: Master Token
+      command: docker swarm join-token manager -q
+      when: swarm_mode.stdout == "active"
+      register: master_token
+
+    - name: Show Master Token
+      debug: var=master_token.stdout
+
+- name: Join Swarm Cluster
+  hosts: manager-follower
+  remote_user: ec2-user
+  gather_facts: False
+  become: true
+  vars:
+    token: "{{ hostvars[groups['manager-leader'][0]]['master_token']['stdout'] }}"
+    master: "{{ hostvars[groups['manager-leader'][0]]['private_ip'] }}"
+  tasks:
+    - shell: "docker info | grep 'Swarm' | awk -F'Swarm: ' '{print $NF}'"
+      register: swarm_mode
+
+    - name: Join Swarm Cluster as a Manager Follower
+      command: docker swarm join --token {{ token }} {{ master }}:2377
+      when: swarm_mode.stdout == "inactive"
+      register: follower
+
+    - name: Show Results
+      debug: var=follower.stdout
+
+    - name: Show Errors
+      debug: var=follower.stderr
+
+- name: Create Default Docker Swarm Services on Manager Leader
+  hosts: manager-leader
+  gather_facts: False
+  remote_user: ec2-user
+  become: true
+  tasks:
+    - shell: "docker service ls | grep -i portainer | wc -l"
+      register: portainer_started
+
+    - name: Create Portainer Service
+      command: docker service create --detach=false --name portainer --publish 9000:9000 --constraint 'node.role == manager' --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock --mount type=bind,src=/home/ec2-user/.portainer/data,dst=/data portainer/portainer
+      when: portainer_started.stdout == "0"
