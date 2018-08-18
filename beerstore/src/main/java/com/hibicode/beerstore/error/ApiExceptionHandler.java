@@ -11,6 +11,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.NoSuchMessageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -48,20 +49,14 @@ public class ApiExceptionHandler {
                 .of(HttpStatus.BAD_REQUEST, apiErrors));
     }
 
-    @ExceptionHandler(InvalidFormatException.class)
+    @ExceptionHandler({InvalidFormatException.class, HttpMessageNotReadableException.class})
     public ResponseEntity<ErrorResponse>
     handleInvalidFormatException(InvalidFormatException exception,
                                  Locale locale) {
-        return createResponse("generic-1", HttpStatus.BAD_REQUEST,
-                locale);
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleInternalServerError
-            (Exception exception, Locale locale) {
-        LOGGER.error("Error not expected", exception);
-        return createResponse("error-1", HttpStatus
-                .INTERNAL_SERVER_ERROR, locale);
+        final HttpStatus status = HttpStatus.BAD_REQUEST;
+        final ApiError apiError = toApiError("generic-1", locale, exception.getValue());
+        final ErrorResponse errorResponse = ErrorResponse.of(status, apiError);
+        return ResponseEntity.status(status).body(errorResponse);
     }
 
     @ExceptionHandler(BusinessException.class)
@@ -70,6 +65,14 @@ public class ApiExceptionHandler {
         final String errorCode = exception.getCode();
         final HttpStatus status = exception.getStatus();
         return createResponse(errorCode, status, locale);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleInternalServerError
+            (Exception exception, Locale locale) {
+        LOGGER.error("Error not expected", exception);
+        return createResponse("error-1", HttpStatus
+                .INTERNAL_SERVER_ERROR, locale);
     }
 
     private ResponseEntity<ErrorResponse> createResponse(
